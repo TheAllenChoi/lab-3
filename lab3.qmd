@@ -3,23 +3,82 @@ title: "Lab 3: Static Dashboards"
 format: dashboard
 ---
 
-## Quarto
-
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
-
-## Running Code
-
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
-
 ```{r}
-1 + 1
+#| label: packages-initialize
+library(tidyverse)
+library(here)
+library(plotly)
+library(ggridges)
+library(leaflet)
+library(rnaturalearth)
 ```
 
-You can add options to executable code like this
-
 ```{r}
-#| echo: false
-2 * 2
+#| label: data-read-in
+data <- readxl::read_xlsx(here("wgm2018-dataset-crosstabs-all-countries.xlsx"),
+                               sheet = 2) |> 
+  select(c(WP5, Q11E))
+data_dict <- readxl::read_xlsx(here("wgm2018-dataset-crosstabs-all-countries.xlsx"),
+                               sheet = 3)
 ```
 
-The `echo: false` option disables the printing of code (only output is displayed).
+# Map of Percent Trust in Doctors/Nurses
+## Row
+```{r}
+#| title: Percent Response to Trust in Doctors/Nurses
+data_dict <- data_dict[1, 3] |> 
+  rename(country = `Variable Type & Codes*`) |> 
+  separate_wider_delim(country, delim = ",", names_sep = "-")
+
+data_dict <- data_dict[1, 1:ncol(data_dict)-1]
+
+country_code <- data.frame(t(data_dict)) |> 
+  separate_wider_delim(cols = `t.data_dict.`,
+                       delim = "=",
+                       names_sep = "-") |> 
+  rename(code = `t.data_dict.-1`,
+         country = `t.data_dict.-2`) |> 
+  mutate(code = as.numeric(code))
+
+map_data <- data |> 
+  mutate(Q11E = as.character(Q11E)) |> 
+  group_by(WP5) |> 
+  mutate(Q11E = case_when(
+    Q11E == 1 ~ 1,
+    Q11E == 2 ~ 1,
+    .default = 0
+  )) |> 
+  summarize(percent = (sum(Q11E) / n())) |> 
+  left_join(country_code, by = join_by(WP5 == code)) |> 
+  mutate(country = case_when(
+    country == "United States" ~ "United States of America",
+    .default = country
+  ))
+
+
+country_map_info <- ne_countries(returnclass = "sf")
+country_map_info <- country_map_info |> 
+  inner_join(map_data, by = join_by(name == country)) |> 
+  mutate(percent = percent * 100,
+         percent = round(percent, digits = 2))
+  
+colors <- colorNumeric(palette = "YlGnBu", domain = country_map_info$percent)
+country_map_info |> 
+  leaflet() |> 
+  addTiles(options = tileOptions(noWrap = TRUE)) |> 
+  addPolygons(color = colors(country_map_info$percent),
+              weight = 2,
+              popup = paste0(
+                "Country:", " ", country_map_info$name, " <br> ",
+                "Percent:", " ", country_map_info$percent),
+              label = paste0(
+                "Percent:", " ", country_map_info$percent, "%"),
+              fillOpacity = 1) |> 
+  addLegend(pal = colors, values = country_map_info$percent,
+            title = "Percent <br> (Response = 'A lot'/'Some')",
+            opacity = 1)
+```
+## Row
+:::{.card title="example"}
+percent trust is ....
+:::

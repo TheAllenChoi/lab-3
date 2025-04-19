@@ -21,6 +21,7 @@ library(plotly)
 library(ggridges)
 library(leaflet)
 library(rnaturalearth)
+library(kableExtra)
 ```
 
 ```{r}
@@ -33,6 +34,7 @@ data_dict <- readxl::read_xlsx(here("wgm2018-dataset-crosstabs-all-countries.xls
 
 # Trust in Vaccines (2018)
 
+## Over World Regions
 ```{r}
 #| title: Percentage of People who Believe Vaccines are Safe
 data_dict_vaccine <- data_dict
@@ -99,6 +101,17 @@ final |>
   scale_x_continuous(limits = c(.2, 1), labels = scales::label_percent()) +
   scale_fill_brewer(palette = "Spectral")
 ```
+
+## Overview of the data
+```{r}
+final |> 
+  left_join(regions, by = join_by(country == country)) |> 
+  arrange(desc(percentage)) |> 
+  kable() |> 
+  kable_styling()
+```
+
+
 
 # Map of Percent Trust in Doctors/Nurses
 

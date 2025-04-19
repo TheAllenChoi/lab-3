@@ -1,6 +1,13 @@
 ---
 title: "Lab 3: Static Dashboards"
-format: dashboard
+author: Allen
+format: 
+  dashboard:
+    nav-buttons: 
+      - icon: github
+        href: https://github.com/TheAllenChoi
+      - icon: linkedin
+        href: https://www.linkedin.com/in/allen-choi/
 ---
 
 ```{r}
@@ -16,16 +23,161 @@ library(rnaturalearth)
 ```{r}
 #| label: data-read-in
 data <- readxl::read_xlsx(here("wgm2018-dataset-crosstabs-all-countries.xlsx"),
-                               sheet = 2) |> 
-  select(c(WP5, Q11E))
+                               sheet = 2)
 data_dict <- readxl::read_xlsx(here("wgm2018-dataset-crosstabs-all-countries.xlsx"),
                                sheet = 3)
 ```
 
+# Blah Blah Blah
+::: {.panel-tabset}
+## Trust in Vaccines (2018)
+```{r}
+#| title: Percentage of People who Believe Vaccines are Safe
+data_dict_vaccine <- data_dict
+data_dict_vaccine <- data_dict_vaccine[1, 3] |> 
+  rename(country = `Variable Type & Codes*`) |> 
+  separate_wider_delim(country, delim = ",", names_sep = "-")
+
+data_dict_vaccine <- data_dict_vaccine[1, 1:ncol(data_dict_vaccine)-1]
+
+country_code <- data.frame(t(data_dict_vaccine)) |> 
+  separate_wider_delim(cols = `t.data_dict_vaccine.`,
+                       delim = "=",
+                       names_sep = "-") |> 
+  rename(code = `t.data_dict_vaccine.-1`,
+         country = `t.data_dict_vaccine.-2`) |> 
+  mutate(code = as.numeric(code))
+
+data_vaccine <- data |> 
+  select(c(WP5, Q25, Regions_Report))
+final <- data_vaccine |> 
+  drop_na() |> 
+  left_join(country_code, by = join_by(WP5 == code)) |> 
+  select(-WP5) |> 
+  mutate(Q25 = case_when(
+    Q25 == 1 ~ 1,
+    Q25 == 2 ~ 1,
+    .default = 0
+  )) |> 
+  group_by(country) |>
+  summarize(percentage = sum(Q25) / n()) 
+
+regions <- data_vaccine |> 
+  select(WP5, Regions_Report) |> 
+  distinct(WP5, Regions_Report) |> 
+  left_join(country_code, by = join_by(WP5 == code)) |> 
+  mutate(region = case_when(
+    Regions_Report %in% c(1, 2, 4, 5) ~ "Sub-Saharan Africa",
+    Regions_Report %in% c(3, 13) ~ "Middle East / North Africa",
+    Regions_Report %in% c(6, 7, 8) ~ "Americas",
+    Regions_Report %in% c(9, 10, 11, 12) ~ "Asia",
+    Regions_Report %in% c(15, 16, 17) ~ "Europe",
+    Regions_Report %in% c(14) ~ "Former Soviet Union",
+    .default = "Other"
+  )) |> 
+  select(country, region)
+
+final |> 
+  left_join(regions, by = join_by(country == country)) |> 
+  filter(region != "Other") |> 
+  mutate(region = factor(region,
+                         levels = c("Former Soviet Union", "Europe", "Americas",
+                                    "Middle East / North Africa", "Sub-Saharan Africa", "Asia"))) |> 
+  ggplot(aes(y = region, x = percentage,
+             fill = region,
+             group = region)) +
+  stat_density_ridges(quantiles = 2, quantile_lines = 2, alpha = 0.9) +
+  theme_minimal() +
+  theme(legend.position = "none",
+        panel.grid.minor.y = element_blank(),
+        panel.grid.major.y = element_blank(),
+        title = element_text(face = "bold")) +
+  labs(y = "",
+       x = "") +
+  scale_x_continuous(limits = c(.2, 1), labels = scales::label_percent()) +
+  scale_fill_brewer(palette = "Spectral")
+```
+
+## Trust in Science
+```{r}
+trust_science <- read_csv("wgm_full_wave2_public_file_final (1)_csv.csv")
+
+
+data_dict_vaccine <- data_dict
+data_dict_vaccine <- data_dict_vaccine[1, 3] |> 
+  rename(country = `Variable Type & Codes*`) |> 
+  separate_wider_delim(country, delim = ",", names_sep = "-")
+
+data_dict_vaccine <- data_dict_vaccine[1, 1:ncol(data_dict_vaccine)-1]
+
+country_code <- data.frame(t(data_dict_vaccine)) |> 
+  separate_wider_delim(cols = `t.data_dict_vaccine.`,
+                       delim = "=",
+                       names_sep = "-") |> 
+  rename(code = `t.data_dict_vaccine.-1`,
+         country = `t.data_dict_vaccine.-2`) |> 
+  mutate(code = as.numeric(code))
+
+data_vaccine <- data |> 
+  select(c(WP5, Q25, Regions_Report))
+final <- data_vaccine |> 
+  drop_na() |> 
+  left_join(country_code, by = join_by(WP5 == code)) |> 
+  select(-WP5) |> 
+  mutate(Q25 = case_when(
+    Q25 == 1 ~ 1,
+    Q25 == 2 ~ 1,
+    .default = 0
+  )) |> 
+  group_by(country) |>
+  summarize(percentage = sum(Q25) / n()) 
+
+regions <- data_vaccine |> 
+  select(WP5, Regions_Report) |> 
+  distinct(WP5, Regions_Report) |> 
+  left_join(country_code, by = join_by(WP5 == code)) |> 
+  mutate(region = case_when(
+    Regions_Report %in% c(1, 2, 4, 5) ~ "Sub-Saharan Africa",
+    Regions_Report %in% c(3, 13) ~ "Middle East / North Africa",
+    Regions_Report %in% c(6, 7, 8) ~ "Americas",
+    Regions_Report %in% c(9, 10, 11, 12) ~ "Asia",
+    Regions_Report %in% c(15, 16, 17) ~ "Europe",
+    Regions_Report %in% c(14) ~ "Former Soviet Union",
+    .default = "Other"
+  )) |> 
+  select(country, region)
+
+final |> 
+  left_join(regions, by = join_by(country == country)) |> 
+  filter(region != "Other") |> 
+  mutate(region = factor(region,
+                         levels = c("Former Soviet Union", "Europe", "Americas",
+                                    "Middle East / North Africa", "Sub-Saharan Africa", "Asia"))) |> 
+  ggplot(aes(y = region, x = percentage,
+             fill = region,
+             group = region)) +
+  stat_density_ridges(quantiles = 2, quantile_lines = 2, alpha = 0.9) +
+  theme_minimal() +
+  theme(legend.position = "none",
+        panel.grid.minor.y = element_blank(),
+        panel.grid.major.y = element_blank(),
+        title = element_text(face = "bold")) +
+  labs(y = "",
+       x = "") +
+  scale_x_continuous(limits = c(.2, 1), labels = scales::label_percent()) +
+  scale_fill_brewer(palette = "Spectral")
+```
+:::
+
+
 # Map of Percent Trust in Doctors/Nurses
 ## Row
 ```{r}
-#| title: Percent Response to Trust in Doctors/Nurses
+#| title: Response to Trust in Doctors/Nurses
+
+data_doctor <- data |> 
+  select(WP5, Q11E)
+
 data_dict <- data_dict[1, 3] |> 
   rename(country = `Variable Type & Codes*`) |> 
   separate_wider_delim(country, delim = ",", names_sep = "-")
@@ -40,7 +192,7 @@ country_code <- data.frame(t(data_dict)) |>
          country = `t.data_dict.-2`) |> 
   mutate(code = as.numeric(code))
 
-map_data <- data |> 
+map_data <- data_doctor |> 
   mutate(Q11E = as.character(Q11E)) |> 
   group_by(WP5) |> 
   mutate(Q11E = case_when(
